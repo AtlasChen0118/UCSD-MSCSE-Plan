@@ -1,0 +1,870 @@
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UCSD M.S. CSE — course plan builder</title>
+<style>
+  :root{
+    --paper:#ECEFF1; --card:#FFFFFF; --ink:#0F1317; --ink-soft:#5C646E; --ink-faint:#8A929B;
+    --line:#D2D8DD; --line-soft:#E4E8EB; --signal:#1B37C9; --signal-soft:#E7EAFB;
+    --good:#0C6F55; --warn:#9A4E12; --warn-soft:#FBEDE2; --star:#6B3FBF;
+    --display:ui-sans-serif,system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--display);-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 80px}
+  header.top{border-bottom:2px solid var(--ink);padding-bottom:14px;margin-bottom:22px}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft)}
+  h1{font-size:clamp(26px,4.4vw,40px);line-height:1.02;letter-spacing:-.03em;font-weight:800;margin:8px 0 10px}
+  h1 em{font-family:var(--serif);font-style:italic;font-weight:400;letter-spacing:-.01em}
+  .toggles{display:flex;flex-wrap:wrap;gap:18px;align-items:center;margin-top:12px}
+  .toggle{display:inline-flex;align-items:center;border:1px solid var(--ink);border-radius:2px;overflow:hidden;vertical-align:middle}
+  .toggle button{font:inherit;font-size:12px;font-weight:600;padding:7px 12px;background:transparent;border:0;cursor:pointer;color:var(--ink)}
+  .toggle button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+  .toggle-label{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint);margin-right:8px}
+
+  .grid{display:grid;grid-template-columns:330px 1fr;gap:34px;align-items:start}
+  @media (max-width:900px){.grid{grid-template-columns:1fr;gap:24px}}
+  .rail{position:sticky;top:18px;max-height:calc(100vh - 36px);overflow-y:auto;padding-right:4px}
+  @media (max-width:900px){.rail{position:static;max-height:none;overflow:visible}}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:3px;padding:16px 16px 18px;margin-bottom:14px}
+  .panel h2{font-size:11px;font-family:var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 14px;font-weight:500}
+
+  .meter{margin-bottom:18px}
+  .meter-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:7px}
+  .meter-name{font-size:13px;font-weight:700}
+  .meter-count{font-family:var(--mono);font-size:11px;color:var(--ink-soft)}
+  .meter-count.done{color:var(--good);font-weight:600}
+  .segs{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .seg{height:34px;border:1px solid var(--line);border-radius:2px;background:#F7F8F9;display:flex;flex-direction:column;justify-content:center;align-items:center;overflow:hidden;transition:background .18s ease,border-color .18s ease}
+  .seg .slot{font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint)}
+  .seg .code{font-family:var(--mono);font-size:11px;font-weight:600}
+  .seg.on{background:var(--signal);border-color:var(--signal)}
+  .seg.on .code{color:#fff}
+  .seg.on .slot{color:rgba(255,255,255,.62)}
+  .ticks{display:grid;grid-template-columns:repeat(16,1fr);gap:2px}
+  .tick{height:22px;border:1px solid var(--line);border-radius:1px;background:#F7F8F9;transition:background .15s ease}
+  .tick.on{background:var(--signal);border-color:var(--signal)}
+  .meter-note{font-size:11.5px;color:var(--ink-soft);margin-top:7px;line-height:1.45}
+  .meter-note.warn{color:var(--warn)}
+  .total{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--line);padding-top:12px;margin-top:14px}
+  .total span:first-child{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft)}
+  .total b{font-family:var(--mono);font-size:20px;letter-spacing:-.02em}
+  .flag{font-size:12px;line-height:1.45;background:var(--warn-soft);border-left:2px solid var(--warn);color:var(--warn);padding:8px 10px;border-radius:0 2px 2px 0;margin-bottom:8px}
+  .flag:last-child{margin-bottom:0}
+
+  .q{border-bottom:1px solid var(--line-soft);padding:9px 0}
+  .q:last-of-type{border-bottom:0}
+  .q-head{display:flex;justify-content:space-between;align-items:baseline}
+  .q-name{font-family:var(--mono);font-size:11px;letter-spacing:.1em}
+  .q-units{font-family:var(--mono);font-size:11px;color:var(--ink-soft)}
+  .q-list{margin:5px 0 0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:4px}
+  .q-list li{font-family:var(--mono);font-size:10.5px;background:var(--signal-soft);color:var(--signal);padding:2px 5px;border-radius:2px}
+  .q-empty{font-size:11.5px;color:var(--ink-faint);font-style:italic;margin-top:4px}
+  .actions{display:flex;gap:8px;flex-wrap:wrap}
+  .btn{font:inherit;font-size:12px;font-weight:600;padding:8px 12px;border:1px solid var(--ink);background:var(--ink);color:var(--paper);border-radius:2px;cursor:pointer}
+  .btn.ghost{background:transparent;color:var(--ink)}
+  .btn:hover{opacity:.86}
+  .btn:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+
+  section.block{margin-bottom:34px}
+  .block-head{display:flex;align-items:baseline;gap:12px;border-bottom:1px solid var(--ink);padding-bottom:7px;margin-bottom:6px;flex-wrap:wrap}
+  .block-head h2{font-size:19px;font-weight:800;letter-spacing:-.02em;margin:0}
+  .block-head .req{font-family:var(--mono);font-size:11px;color:var(--ink-soft)}
+  .rule{font-size:12.5px;color:var(--ink-soft);line-height:1.5;margin:0 0 16px}
+  .area-title{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink);margin:20px 0 9px;display:flex;align-items:center;gap:8px}
+  .area-title::after{content:"";flex:1;height:1px;background:var(--line)}
+  .area-title .n{color:var(--ink-faint)}
+
+  .chips{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 6px}
+  .chipbtn{font:inherit;font-size:12px;font-weight:600;padding:6px 10px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:2px;cursor:pointer;position:relative}
+  .chipbtn:hover{border-color:var(--ink-soft)}
+  .chipbtn[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+  .chipbtn[disabled]{opacity:.34;cursor:not-allowed}
+  .chipbtn .dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--signal);margin-left:6px;vertical-align:middle}
+  .chipbtn[aria-pressed="true"] .dot{background:#8FA3FF}
+
+  .courses{display:grid;grid-template-columns:repeat(auto-fill,minmax(252px,1fr));gap:7px}
+  .course{position:relative;text-align:left;font:inherit;background:var(--card);border:1px solid var(--line);border-radius:3px;padding:9px 11px 10px;cursor:pointer;display:block;width:100%;transition:border-color .13s ease,background .13s ease,transform .13s ease}
+  .course:hover{border-color:var(--ink-soft);transform:translateY(-1px)}
+  .course .code{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--signal);display:flex;align-items:center;gap:6px}
+  .course .title{font-family:var(--serif);font-size:14.5px;line-height:1.24;margin-top:3px;display:block}
+  .course .note{font-size:11px;line-height:1.4;color:var(--ink-soft);margin-top:5px;display:block}
+  .course .star{color:var(--star);font-size:11px}
+  .course[aria-pressed="true"]{background:var(--signal);border-color:var(--signal)}
+  .course[aria-pressed="true"] .code,.course[aria-pressed="true"] .title{color:#fff}
+  .course[aria-pressed="true"] .note{color:rgba(255,255,255,.8)}
+  .course[aria-pressed="true"] .star{color:#C9B8F5}
+  .course .dup{position:absolute;top:8px;right:9px;font-family:var(--mono);font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)}
+  .course[aria-pressed="true"] .dup{color:rgba(255,255,255,.7)}
+  .course.clash{box-shadow:inset 0 0 0 2px var(--warn)}
+
+  details.dept{border-bottom:1px solid var(--line-soft);padding:2px 0}
+  details.dept > summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:9px;padding:11px 2px}
+  details.dept > summary::-webkit-details-marker{display:none}
+  .caret{font-family:var(--mono);font-size:10px;color:var(--ink-faint);width:10px}
+  details[open] .caret{color:var(--signal)}
+  .dept-name{font-size:13.5px;font-weight:700;letter-spacing:-.01em}
+  .dept-meta{font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);margin-left:auto}
+  .dept-meta.has{color:var(--signal);font-weight:600}
+  .dept-body{padding:2px 0 16px}
+  .dept-note{font-size:11.5px;color:var(--warn);background:var(--warn-soft);padding:6px 9px;border-radius:2px;margin-bottom:9px;line-height:1.45}
+  .ref{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:2px 14px}
+  .ref button{font:inherit;text-align:left;background:transparent;border:0;border-bottom:1px dotted var(--line);padding:6px 2px;cursor:pointer;display:flex;gap:8px;width:100%}
+  .ref button:hover{background:var(--signal-soft)}
+  .ref .rc{font-family:var(--mono);font-size:11px;color:var(--signal);white-space:nowrap}
+  .ref .rt{font-size:12px;color:var(--ink-soft);line-height:1.3}
+
+  .stack{background:var(--card);border:1px solid var(--line);border-radius:3px;padding:14px;margin-top:14px}
+  .stack h3{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 10px;font-weight:500}
+  .stepper{display:flex;align-items:center;gap:10px}
+  .stepper button{font:inherit;font-family:var(--mono);width:30px;height:30px;border:1px solid var(--ink);background:transparent;border-radius:2px;cursor:pointer;font-size:15px;line-height:1}
+  .stepper .val{font-family:var(--mono);font-size:17px;min-width:70px;text-align:center}
+  .hint{font-size:11.5px;color:var(--ink-soft);line-height:1.45;margin-top:8px}
+  .addrow{display:flex;gap:6px;flex-wrap:wrap}
+  .addrow input{font:inherit;font-size:13px;padding:7px 9px;border:1px solid var(--line);border-radius:2px;background:#FBFCFC}
+  .addrow input.c{width:110px;font-family:var(--mono);font-size:12px}
+  .addrow input.t{flex:1;min-width:150px}
+  .addrow input.u{width:62px;font-family:var(--mono);font-size:12px}
+  .customs{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--signal);color:#fff;border-radius:2px;padding:5px 7px 5px 9px;font-size:12.5px}
+  .chip .cc{font-family:var(--mono);font-size:11px;opacity:.85}
+  .chip button{background:transparent;border:0;color:rgba(255,255,255,.75);cursor:pointer;font:inherit;font-size:14px;padding:0 2px}
+  .legend{font-size:11.5px;color:var(--ink-soft);margin-top:26px;line-height:1.6;border-top:1px solid var(--line);padding-top:12px}
+  .legend .star{color:var(--star)}
+  .assign{width:100%;border-collapse:collapse}
+  .assign td{border-bottom:1px solid var(--line-soft);padding:6px 0;vertical-align:middle;font-size:12.5px}
+  .assign td.c{font-family:var(--mono);font-size:11px;white-space:nowrap;padding-right:8px}
+  .assign td.t{font-family:var(--serif);line-height:1.2;padding-right:8px}
+  .assign select{font:inherit;font-family:var(--mono);font-size:11px;padding:3px 4px;border:1px solid var(--line);border-radius:2px;background:#FBFCFC}
+  .empty{font-size:12.5px;color:var(--ink-faint);font-style:italic}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">UC San Diego · M.S. Computer Science &amp; Engineering · 40 units</div>
+    <h1>Course plan <em>builder</em></h1>
+    <div class="toggles">
+      <div><span class="toggle-label">Major</span>
+        <span class="toggle" id="majorToggle">
+          <button data-major="cs" aria-pressed="true">Computer Science</button>
+          <button data-major="ce" aria-pressed="false">Computer Engineering</button>
+        </span></div>
+      <div><span class="toggle-label">Plan</span>
+        <span class="toggle" id="planToggle">
+          <button data-plan="comp" aria-pressed="true">Comprehensive exam</button>
+          <button data-plan="thesis" aria-pressed="false">Thesis</button>
+        </span></div>
+    </div>
+  </header>
+
+  <div class="grid">
+    <aside class="rail">
+      <div class="panel"><h2>Requirements</h2><div id="meters"></div>
+        <div class="total"><span>Units selected</span><b id="grandTotal">0 / 40</b></div></div>
+      <div class="panel" id="flagPanel" hidden><h2>Check these</h2><div id="flags"></div></div>
+      <div class="panel"><h2>By quarter</h2><div id="quarters"></div></div>
+      <div class="panel"><h2>Assign quarters</h2><div id="assign"></div></div>
+      <div class="panel"><h2>Plan file</h2>
+        <div class="actions">
+          <button class="btn" id="copyBtn">Copy plan</button>
+          <button class="btn ghost" id="clearBtn">Clear all</button>
+        </div>
+        <div class="hint" id="saveHint">Selections save to this browser automatically.</div></div>
+    </aside>
+
+    <main>
+      <section class="block">
+        <div class="block-head"><h2>Breadth</h2><span class="req">12 units · letter grade · B− or higher</span></div>
+        <p class="rule" id="breadthRule"></p>
+        <div id="breadthAreas"></div>
+      </section>
+
+      <section class="block">
+        <div class="block-head"><h2>Depth</h2><span class="req">12 units · one area · letter grade</span></div>
+        <p class="rule" id="depthRule">Three courses from a single depth area. Pick your area, then pick three.</p>
+        <div class="chips" id="depthChips"></div>
+        <div id="depthAreas"></div>
+      </section>
+
+      <section class="block">
+        <div class="block-head"><h2>Electives &amp; research</h2><span class="req">16 units</span></div>
+        <p class="rule">Graduate CSE, ECE, and Math courses, plus everything on the approved exception list below. Anything past the three breadth or three depth slots rolls down here automatically.</p>
+        <div id="deptList"></div>
+
+        <div class="stack"><h3>CSE 298 — Independent research (S/U)</h3>
+          <div class="stepper">
+            <button id="resDown" aria-label="Remove 4 research units">−</button>
+            <span class="val" id="resVal">0 units</span>
+            <button id="resUp" aria-label="Add 4 research units">+</button>
+          </div>
+          <div class="hint" id="resHint"></div></div>
+
+        <div class="stack" id="addStack"><h3>Add any other course</h3>
+          <div class="addrow">
+            <input class="c" id="addCode" placeholder="MATH 270A" aria-label="Course code">
+            <input class="t" id="addTitle" placeholder="Course title" aria-label="Course title">
+            <input class="u" id="addUnits" type="number" min="1" max="12" value="4" aria-label="Units">
+            <button class="btn" id="addBtn">Add</button>
+          </div>
+          <div class="customs" id="customList"></div>
+          <div class="hint">Use this for the ECE and Math series above — click any reference line and it fills in here, then type the exact section letter.</div></div>
+
+        <div class="legend">
+          <span class="star">★</span> marks the courses closest to generative AI for music and sequence modeling — my read, not the department's.<br>
+          <b>Counts once.</b> A course tagged <span style="font-family:var(--mono);font-size:10px">ALSO IN DEPTH</span> or <span style="font-family:var(--mono);font-size:10px">ALSO IN BREADTH</span> can fill either slot, never both.<br>
+          <b>Caps.</b> One MGT course maximum. One undergraduate CSE course maximum, and you can't pair an undergrad course with its graduate counterpart.
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script>
+const U = 4;
+const C = (id, code, title, opt = {}) => ({ id, code, title, units: U, ...opt });
+
+const BREADTH = {
+  theory:{ name:"Theory", list:[
+    C("200","CSE 200","Computability & Complexity"),
+    C("201A","CSE 201A","Advanced Complexity"),
+    C("202","CSE 202","Algorithm Design and Analysis"),
+    C("203A","CSE 203A","Advanced Algorithms"),
+    C("203B","CSE 203B","Convex Optimization",{note:"Not eligible if you completed ECE 273 or Math 245B."}),
+    C("205A","CSE 205A","Logic in Computer Science"),
+    C("207A","CSE 207A","Modern Cryptography")]},
+  systems:{ name:"Systems", list:[
+    C("220","CSE 220","Operating Systems Concepts",{note:"Not permitted if you completed CSE 120."}),
+    C("221","CSE 221","Operating Systems"),
+    C("222A","CSE 222A","Computer Communication Networks"),
+    C("223B","CSE 223B","Distributed Computing and Systems"),
+    C("224","CSE 224","Graduate Networked Systems"),
+    C("231","CSE 231","Advanced Compiler Design"),
+    C("234","CSE 234","Data Systems for Machine Learning",{star:true}),
+    C("237A","CSE 237A","Embedded Systems"),
+    C("237B","CSE 237B","Embedded Software"),
+    C("237C","CSE 237C","Validation/Testing of Embedded Systems"),
+    C("237D","CSE 237D","Embedded Systems (design project)"),
+    C("240A","CSE 240A","Principles of Computer Architecture"),
+    C("240B","CSE 240B","Advanced Computer Architecture"),
+    C("241A","CSE 241A","VLSI Integration of Computing Circuitry"),
+    C("243A","CSE 243A","VLSI CAD"),
+    C("244A","CSE 244A","VLSI Test")]},
+  apps:{ name:"Applications", list:[
+    C("210","CSE 210","Principles of Software Engineering"),
+    C("216","CSE 216","Human-Computer Interaction"),
+    C("218","CSE 218","Advanced Topics in Software Engineering"),
+    C("230","CSE 230","Principles of Programming Languages"),
+    C("232","CSE 232","Principles of Database Systems"),
+    C("250A","CSE 250A","AI: Probabilistic Reasoning and Learning"),
+    C("251A","CSE 251A","AI: Learning Algorithms"),
+    C("251U","CSE 251U","Unsupervised Learning"),
+    C("252A","CSE 252A","Computer Vision I"),
+    C("252B","CSE 252B","Computer Vision II"),
+    C("256","CSE 256","Statistical NLP",{star:true}),
+    C("260","CSE 260","Parallel Computation"),
+    C("280A","CSE 280A","Algorithms in Computational Biology"),
+    C("284","CSE 284","Personal Genomics for Bioinformaticians")]},
+};
+
+const DEPTH = {
+  ai:{ name:"Artificial Intelligence", short:"AI", list:[
+    C("203B","CSE 203B","Convex Optimization",{note:"Not eligible if you completed ECE 273 or Math 245B."}),
+    C("234","CSE 234","Data Systems for Machine Learning",{star:true}),
+    C("250A","CSE 250A","AI: Probabilistic Reasoning and Learning"),
+    C("251A","CSE 251A","AI: Learning Algorithms"),
+    C("251B","CSE 251B","Deep Learning",{star:true}),
+    C("251C","CSE 251C","Machine Learning Theory"),
+    C("251U","CSE 251U","Unsupervised Learning"),
+    C("252D","CSE 252D","Advanced Computer Vision",{note:"Chandraker's section only."}),
+    C("253","CSE 253","Machine Learning for Music",{star:true}),
+    C("254","CSE 254","Statistical Learning"),
+    C("255","CSE 255","Data Mining and Analytics"),
+    C("256","CSE 256","Statistical Natural Language Processing",{star:true}),
+    C("257","CSE 257","Search and Optimization"),
+    C("258","CSE 258","Recommender Systems and Web Mining"),
+    C("261","CSE 261","Advanced Data-Driven Text Mining",{note:"Formerly CSE 291."}),
+    C("275","CSE 275","Deep Learning for 3D Data",{note:"Renumbered from CSE 291."}),
+    C("276F","CSE 276F","Machine Learning for Robotics",{note:"Formerly CSE 291."}),
+    C("291sp","CSE 291","Structured Prediction for NLP"),
+    C("291dgm","CSE 291","Deep Generative Models",{star:true}),
+    C("291gai","CSE 291","Generative AI",{note:"Rose Yu's section only.",star:true}),
+    C("cogs225","COGS 225","Image Recognition",{note:"With Z. Tu. Listed as COGS 260 in some areas."}),
+    C("ece273","ECE 273","Convex Optimization and Applications")]},
+
+  ce:{ name:"Computer Engineering", short:"CE", list:[
+    C("231","CSE 231","Advanced Compiler Design"),
+    C("237A","CSE 237A","Introduction to Embedded Computing"),
+    C("237B","CSE 237B","Software for Embedded Systems"),
+    C("237C","CSE 237C","Validation and Testing of Embedded Systems"),
+    C("237D","CSE 237D","Design Automation and Prototyping for Embedded Systems"),
+    C("240A","CSE 240A","Principles of Computer Architecture"),
+    C("240B","CSE 240B","Parallel Computer Architecture"),
+    C("240C","CSE 240C","Advanced Microarchitecture"),
+    C("240D","CSE 240D","Application Specific Processors"),
+    C("241A","CSE 241A","VLSI Integrated Circuits & Systems Design",{note:"Cross-listed ECE 260B."}),
+    C("243A","CSE 243A","Introduction to Synthesis Methodologies in VLSI CAD"),
+    C("244A","CSE 244A","VLSI Test"),
+    C("245","CSE 245","Computer Aided Circuit Simulation and Verification"),
+    C("248","CSE 248","Algorithmic and Optimization Foundations for VLSI CAD"),
+    C("260","CSE 260","Parallel Computation"),
+    C("291mem","CSE 291","Memory / Storage Technologies and Applications"),
+    C("291emb","CSE 291","Topics in Embedded Computing and Communication"),
+    C("ece260a","ECE 260A","VLSI Digital System Algorithms & Architectures"),
+    C("ece260c","ECE 260C","VLSI Advanced Topics"),
+    C("ece284ce","ECE 284","Special Topics in Computer Engineering")]},
+
+  sys:{ name:"Computer Systems", short:"SYS", list:[
+    C("207B","CSE 207B","Applied Cryptography"),
+    C("220","CSE 220","Operating Systems Concepts",{note:"Not permitted if you completed CSE 120."}),
+    C("221","CSE 221","Operating Systems"),
+    C("222A","CSE 222A","Computer Communication Networks"),
+    C("222C","CSE 222C","Wireless Networks"),
+    C("223B","CSE 223B","Distributed Computing and Systems"),
+    C("224","CSE 224","Graduate Networked Systems"),
+    C("227","CSE 227","Computer Security"),
+    C("234","CSE 234","Data Systems for Machine Learning",{star:true}),
+    C("260","CSE 260","Parallel Computation"),
+    C("262","CSE 262","System Support for Applications of Parallel Computation"),
+    C("291aml","CSE 291","Advanced Analytics & ML Systems"),
+    C("291cos","CSE 291","Advanced Topics in Classical Operating Systems"),
+    C("291bc","CSE 291","Blockchain"),
+    C("291bss","CSE 291","Building Secure Systems"),
+    C("291cc","CSE 291","Cloud Computing"),
+    C("291cad","CSE 291","Cloud Application Dependability"),
+    C("291ds","CSE 291","Distributed Systems"),
+    C("291dcd","CSE 291","Data Center Dependability"),
+    C("291ids","CSE 291","Internet Data Science for Cybersecurity"),
+    C("291lbs","CSE 291","Language Based Security"),
+    C("291mem","CSE 291","Memory / Storage Technologies and Applications"),
+    C("291osd","CSE 291","Operating Systems in Datacenters"),
+    C("291qcs","CSE 291","Quantum Computing Systems"),
+    C("291ss","CSE 291","Storage Systems"),
+    C("291emb","CSE 291","Topics in Embedded Computing and Communication"),
+    C("291virt","CSE 291","Virtualization and Cloud Computing"),
+    C("291wci","CSE 291","Wireless and Communication / Internet of Things")]},
+
+  db:{ name:"Database Systems", short:"DB", list:[
+    C("232","CSE 232","Principles of Database Systems"),
+    C("232B","CSE 232B","Database System Implementation"),
+    C("233","CSE 233","Database Theory"),
+    C("234","CSE 234","Data Systems for Machine Learning",{star:true}),
+    C("291graph","CSE 291","Management of Large-Scale Graph Data"),
+    C("291bigdata","CSE 291","Data Models in the Big Data Era")]},
+
+  gv:{ name:"Graphics and Vision", short:"G&V", list:[
+    C("u163","CSE 163","Advanced Computer Graphics"),
+    C("u168","CSE 168","Computer Graphics II: Rendering"),
+    C("252A","CSE 252A","Computer Vision I"),
+    C("252B","CSE 252B","Computer Vision II"),
+    C("252C","CSE 252C","Selected Topics in Vision and Learning"),
+    C("252D","CSE 252D","Advanced Computer Vision"),
+    C("270","CSE 270","Discrete Differential Geometry"),
+    C("272","CSE 272","Advanced Image Synthesis"),
+    C("273","CSE 273","Computational Photography"),
+    C("274","CSE 274","Selected Topics in Graphics"),
+    C("275","CSE 275","Deep Learning for 3D Data"),
+    C("2913dr","CSE 291","Advances in 3D Reconstruction"),
+    C("291seq","CSE 291","Deep Learning for Sequences",{star:true}),
+    C("291da","CSE 291","Domain Adaptation in Computer Vision"),
+    C("291sim","CSE 291","Physical Simulation"),
+    C("cogs225","COGS 225","Image Recognition",{note:"Listed as COGS 260 in this area."})]},
+
+  hci:{ name:"Human-Computer Interaction", short:"HCI",
+    note:"Entered fall 2022 or earlier only: CSE 291 Social Computing (Vaccaro), CSE 291 HCI for Health, and CSE 250A also count here.", list:[
+    C("165","CSE 165","VR User Interaction and Technology"),
+    C("u170","CSE 170","Interaction Design",{note:"Cross-listed COGS 120."}),
+    C("210","CSE 210","Principles of Software Engineering"),
+    C("216","CSE 216","Topics in HCI",{note:"Cross-listed COGS 230."}),
+    C("217","CSE 217","Human-Centered Computing for Health"),
+    C("218","CSE 218","Advanced Topics in Software Engineering"),
+    C("276B","CSE 276B","Human-Robot Interaction"),
+    C("276D","CSE 276D","Healthcare Robotics"),
+    C("291asc","CSE 291","Anti-Social Computing",{note:"Vaccaro."}),
+    C("291cac","CSE 291","Critical Analysis and Computing",{note:"Pannuto."}),
+    C("291iot","CSE 291","Design and Deployment of Internet of Things Devices"),
+    C("291cer","CSE 291","Introduction to Computing Education Research"),
+    C("291ppt","CSE 291","Programmers are People Too",{note:"Coblenz."}),
+    C("291spux","CSE 291","Security, Privacy, and User Experience"),
+    C("291hcai","CSE 291","Towards Human-Centered AI"),
+    C("291usp","CSE 291","Usable Security and Privacy"),
+    C("cogs220","COGS 220","Information Visualization"),
+    C("cogs231","COGS 231","Human Centered Programming",{note:"Must be 4 units."}),
+    C("cogs234","COGS 234","Foundations for Future User Interfaces",{note:"Previously COGS 260."}),
+    C("cogs260cs","COGS 260","Crowdsourcing"),
+    C("dsc291priv","DSC 291","Privacy-Sensitive Data Systems"),
+    C("dsgn201","DSGN 201","Design and Complex Sociotechnical Systems"),
+    C("ece284mh","ECE 284","Mobile Health Device Design")]},
+
+  plse:{ name:"PL, Compilers & Software Engineering", short:"PL/SE", list:[
+    C("210","CSE 210","Principles of Software Engineering"),
+    C("211","CSE 211","Software Testing and Analysis"),
+    C("218","CSE 218","Advanced Topics in Software Engineering"),
+    C("230","CSE 230","Principles of Programming Languages"),
+    C("231","CSE 231","Compiler Construction",{note:"Formerly Advanced Compiler Design."}),
+    C("291psyn","CSE 291","Program Synthesis"),
+    C("291ppt","CSE 291","Programmers are People Too",{note:"Coblenz."})]},
+
+  bio:{ name:"Bioinformatics", short:"BIO", list:[
+    C("280A","CSE 280A","Algorithms in Computational Biology"),
+    C("282","CSE 282","Bioinformatics II: Sequence and Structure Analysis"),
+    C("283","CSE 283","Bioinformatics III: Functional Genomics"),
+    C("284","CSE 284","Personal Genomics"),
+    C("math283","MATH 283","Statistical Methods in Bioinformatics")]},
+
+  theory:{ name:"Theoretical Computer Science", short:"THEORY",
+    note:"Entered fall 2021 or earlier only: CSE 207B Applied Cryptography also counts here.", list:[
+    C("200","CSE 200","Computability and Complexity"),
+    C("201A","CSE 201A","Advanced Complexity"),
+    C("202","CSE 202","Algorithm Design and Analysis"),
+    C("203A","CSE 203A","Advanced Algorithms"),
+    C("203B","CSE 203B","Convex Optimization Formulations and Algorithms"),
+    C("205A","CSE 205A","Logic in Computer Science"),
+    C("206A","CSE 206A","Lattice Algorithms and Applications"),
+    C("207A","CSE 207A","Modern Cryptography"),
+    C("208","CSE 208","Advanced Cryptography"),
+    C("291cx","CSE 291","Communication Complexity"),
+    C("291qct","CSE 291","Quantum Complexity Theory"),
+    C("291sdp","CSE 291","Semidefinite Programming & Approximation Algorithms"),
+    C("291cry","CSE 291","Cryptanalysis"),
+    C("291adv","CSE 291","Topics in Advanced Cryptography")]},
+
+  rob:{ name:"Robotics", short:"ROB",
+    note:"CSE 276A is recommended but not required.", list:[
+    C("276A","CSE 276A","Introduction to Robotics"),
+    C("276B","CSE 276B","Human-Robot Interaction"),
+    C("276C","CSE 276C","Mathematics for Robotics"),
+    C("276D","CSE 276D","Healthcare Robotics"),
+    C("276E","CSE 276E","Robotic System Design and Implementation"),
+    C("276F","CSE 276F","Machine Learning for Robotics"),
+    C("251A","CSE 251A","AI: Learning Algorithms"),
+    C("252B","CSE 252B","Computer Vision II"),
+    C("ece276a","ECE 276A","Sensing and Estimation")]},
+};
+
+const ELECTIVE_GROUPS = [
+  { key:"mus", name:"Music", open:true, list:[
+    C("mus270a","MUS 270A","Digital Audio Processing",{star:true}),
+    C("mus270c","MUS 270C","Compositional Algorithms",{star:true}),
+    C("mus267","MUS 267","Computational Acoustics Modeling for Sound Synthesis",{star:true}),
+    C("mus206","MUS 206","Free Energy of the Musical Mind",{note:"Dubnov's section only.",star:true}),
+    C("cse190dsl","CSE 190","Deep and Shallow Learning",{note:"Dubnov's section only.",star:true})]},
+  { key:"dsc", name:"Data Science (DSC)", list:[
+    C("dsc200","DSC 200","Data Science Programming"),
+    C("dsc210","DSC 210","Numerical Linear Algebra"),
+    C("dsc214","DSC 214","Topological Data Analysis",{note:"Formerly DSC 291."}),
+    C("dsc215","DSC 215","Statistical Thinking & Experimental Design",{note:"Formerly DSC 291."}),
+    C("dsc231","DSC 231","Embedded Sensing and IOT Data Models & Methods"),
+    C("dsc243","DSC 243","Advanced Optimization"),
+    C("dsc252","DSC 252","Statistical NLP",{star:true}),
+    C("dsc260","DSC 260","Data Science, Ethics, and Society"),
+    C("dsc291nlp","DSC 291","Advanced NLP",{note:"Zhiting Hu only.",star:true}),
+    C("dsc291opt","DSC 291","Continuous Optimization",{note:"Yian Ma's section only."}),
+    C("dsc291cst","DSC 291","Critical Statistical Thinking",{note:"Yoav Freund's section."}),
+    C("dsc291bda","DSC 291","Big Data Analytics",{note:"Also titled Data Science for Engineers."}),
+    C("dsc291xai","DSC 291","Interpretable / Explainable ML",{note:"Berk Ustun's section only."}),
+    C("dsc291mdl","DSC 291","Mathematics of Deep Learning",{note:"Belkin's section only.",star:true}),
+    C("dsc291mls","DSC 291","ML + Systems",{note:"Hao Zhang."}),
+    C("dsc291tools","DSC 291","ML with Modern Optimization Tools",{note:"Berk Ustun's section only."}),
+    C("dsc291tml","DSC 291","Trustworthy Machine Learning",{note:"Lily Weng's section only."}),
+    C("dsc291priv","DSC 291","Privacy-Sensitive Data Systems")]},
+  { key:"cogs", name:"Cognitive Science (COGS)", list:[
+    C("cogs202","COGS 202","Computational Modeling of Cognition"),
+    C("cogs209","COGS 209","Statistical ML"),
+    C("cogs219","COGS 219","Programming for Behavioral Science"),
+    C("cogs220","COGS 220","Information Visualization",{note:"Hollan."}),
+    C("cogs225","COGS 225","Image Recognition",{note:"With Z. Tu. Formerly COGS 260."}),
+    C("cogs230","COGS 230","Interaction Design Research",{note:"Klemmer."}),
+    C("cogs231","COGS 231","Human Centered Programming"),
+    C("cogs234","COGS 234","Foundations for Future User Interfaces",{note:"Previously COGS 260."}),
+    C("cogs243","COGS 243","Statistical Data Analysis",{note:"Angela Yu."}),
+    C("cogs260asc","COGS 260","Advanced Social Computing",{note:"This exact topic only."}),
+    C("cogs283","COGS 283","Big Visual Data Processing")]},
+  { key:"css", name:"Computational Social Science (CSS)", list:[
+    C("css204","CSS 204","Statistical Computing and Inference from Data I",{note:"Minimum 4 units required."}),
+    C("css205","CSS 205","Statistical Computing and Inference from Data II"),
+    C("css206","CSS 206","Machine Learning for Social Sciences")]},
+  { key:"dbmi", name:"Biomedical Informatics (DBMI)", list:[
+    C("bnfo286","BNFO 286","Network Biology and Biomedicine",{note:"Cross-listed MED 283."}),
+    C("med263","MED 263","Bioinformatics Applications to Human Disease"),
+    C("med264","MED 264","Principles of Biomedical Informatics"),
+    C("med267","MED 267","Modeling Clinical Data and Knowledge for Computation"),
+    C("med277","MED 277","Intro to Natural Language Processing"),
+    C("med299","MED 299","Cloud Computing")]},
+  { key:"mae", name:"Mechanical & Aerospace (MAE)", list:[
+    C("mae200","MAE 200","Controls"),
+    C("mae207h","MAE 207","Haptic Interfaces"),
+    C("mae207b","MAE 207","Bioinspired Mobile Robotics"),
+    C("mae242","MAE 242","Robot Motion Planning")]},
+  { key:"phys", name:"Physics", list:[
+    C("phys239cs","PHYS 239","Computational Statistics"),
+    C("phys239nc","PHYS 239","Neuromorphic Computing"),
+    C("phys244","PHYS 244","Parallel Computing for Science and Engineering")]},
+  { key:"other", name:"Design, Policy, Sociology, Visual Arts, Bioengineering", list:[
+    C("dsgn201","DSGN 201","Design and Complex Sociotechnical Systems"),
+    C("irgn477","IRGN 477","Cyber Security Policy",{note:"Cross-listed GPPA 477."}),
+    C("socg211","SOCG 211","Introduction to Computational Social Science"),
+    C("vis134","VIS 134","Introduction to 3-D Asset Design"),
+    C("vis143","VIS 143","Virtual Environments"),
+    C("beng216","BENG 216","Neuromorphic Integrated Bioelectronics")]},
+  { key:"mgt", name:"Management (MGT)", cap:1,
+    capNote:"Only one MGT course may count toward the degree.", list:[
+    C("mgt412","MGT 412","New Venture Design"),
+    C("mgt452","MGT 452","New Product Development"),
+    C("mgt456","MGT 456","Innovative Product and Program Management"),
+    C("mgt459","MGT 459","Topics in Innovation",{note:"Must be 4 units in one quarter."})]},
+  { key:"ugrad", name:"CSE undergraduate exceptions", cap:1,
+    capNote:"One upper-division CSE undergraduate course maximum, and seats aren't guaranteed — undergrads get priority and requests go through EASy.", list:[
+    C("u101","CSE 101","Design & Analysis of Algorithms"),
+    C("u106","CSE 106","Discrete and Continuous Optimization",{note:"Paturi's section. Previously CSE 190."}),
+    C("u110","CSE 110","Software Engineering"),
+    C("u120","CSE 120","Principles of Computer Operating Systems"),
+    C("u131","CSE 131","Compiler Construction"),
+    C("u132C","CSE 132C","Database System Implementation",{note:"Previously CSE 190."}),
+    C("u141","CSE 141","Introduction to Computer Architecture"),
+    C("u163","CSE 163","Advanced Computer Graphics"),
+    C("u167","CSE 167","Computer Graphics"),
+    C("u168","CSE 168","Computer Graphics II: Rendering"),
+    C("u170","CSE 170","Interaction Design",{note:"Cross-listed COGS 120."})]},
+];
+
+const REFERENCE = [
+  { name:"Electrical & Computer Engineering (ECE) — must be 4 units", lines:[
+    ["ECE 201–204","Series and topics courses"],["ECE 207A",""],["ECE 208–209",""],
+    ["ECE 212AN/BN/CN",""],["ECE 221",""],["ECE 222A–246",""],
+    ["ECE 247A","Cross-listed BENG 247A / NANO 247A"],["ECE 247–269",""],
+    ["ECE 271A–C",""],["ECE 272A–B",""],["ECE 273","Convex Optimization and Applications"],
+    ["ECE 275A–B",""],["ECE 276A–C",""],["ECE 277",""],["ECE 280–289",""]]},
+  { name:"Mathematics — must be 4 units", lines:[
+    ["MATH 200A/B/C, 201A, 207A","Algebra, Topics in Algebra"],
+    ["MATH 202A/B/C","Applied Algebra"],
+    ["MATH 203A/B/C, 206A/B","Algebraic Geometry"],
+    ["MATH 204A/B/C, 205","Number Theory"],
+    ["MATH 210A/B/C","Mathematical Methods in Physics and Engineering"],
+    ["MATH 212A/B","Introduction to Mathematical Biology"],
+    ["MATH 214","Introduction to Computational Stochastics"],
+    ["MATH 216A/B/C","Mathematical Methods in Data Science"],
+    ["MATH 217","Topics in Applied Mathematics"],
+    ["MATH 220A/B/C, 221A/B","Complex Analysis"],
+    ["MATH 231A/B/C, 237A/B","Partial Differential Equations"],
+    ["MATH 240A/B/C, 247A/B","Real Analysis"],
+    ["MATH 241A/B","Functional Analysis"],
+    ["MATH 242","Topics in Fourier Analysis"],
+    ["MATH 245A/B/C","Convex Analysis and Optimization"],
+    ["MATH 250A/B/C, 257A/B","Differential Geometry"],
+    ["MATH 251A/B/C","Lie Groups"],
+    ["MATH 259A/B/C","Geometrical Physics"],
+    ["MATH 260A/B, 267A/B","Mathematical Logic, Topics in Logic"],
+    ["MATH 261A/B/C","Probabilistic Combinatorics and Algorithms"],
+    ["MATH 262A/B","Topics in Combinatorial Mathematics"],
+    ["MATH 264A/B/C","Combinatorics"],
+    ["MATH 270A/B/C","Numerical Linear Algebra"],
+    ["MATH 271A/B/C","Numerical Optimization"],
+    ["MATH 272A/B/C","Numerical Partial Differential Equations"],
+    ["MATH 273A/B/C","Advanced Techniques in Computational Mathematics"],
+    ["MATH 274","Numerical Methods for Physical Modeling"],
+    ["MATH 275","Numerical Methods for Partial Differential Equations"],
+    ["MATH 276","Numerical Analysis in Multiscale Biology"],
+    ["MATH 277A","Topics in Computational and Applied Mathematics"],
+    ["MATH 279","Projects in Computational and Applied Mathematics"],
+    ["MATH 280A/B/C","Probability Theory"],
+    ["MATH 281A/B/C, 282A/B","Mathematical Statistics, Applied Statistics"],
+    ["MATH 283","Statistical Methods in Bioinformatics"],
+    ["MATH 284","Lifetime Data Analysis"],["MATH 285","Stochastic Processes"],
+    ["MATH 286","Stochastic Differential Equations"],["MATH 287A","Time Series Analysis"],
+    ["MATH 287B","Multivariate Analysis"],["MATH 287C","Advanced Time Series Analysis"],
+    ["MATH 287D","Statistical Learning"],["MATH 289A/B","Topics in Probability and Statistics"],
+    ["MATH 289C","Exploratory Data Analysis and Inference"],
+    ["MATH 290A/B/C, 291A/B","Topology, Topics in Topology"],
+    ["MATH 294","The Mathematics of Finance"]]},
+];
+
+const UG_GRAD_ID = { u101:["202"], u110:["210"], u120:["220","221"], u131:["231"], u132C:["232","232B"], u141:["240A"], u170:["216"] };
+const QUARTERS = ["FA26","WI27","SP27","FA27","WI28","SP28"];
+const KEY = "ucsd-cse-ms-plan-v2";
+let state = { major:"cs", plan:"comp", depthArea:"ai", sel:{}, research:0, custom:[] };
+
+/* ---------- persistence ---------- */
+async function loadState(){
+  try{ const r = await window.storage.get(KEY); if(r && r.value){ Object.assign(state, JSON.parse(r.value)); return; } }catch(e){}
+  try{ const v = localStorage.getItem(KEY); if(v) Object.assign(state, JSON.parse(v)); }catch(e){}
+}
+let saveTimer, saveWorks = false;
+function save(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async ()=>{
+    const payload = JSON.stringify(state); let ok = false;
+    try{ await window.storage.set(KEY, payload); ok = true; }catch(e){}
+    if(!ok){ try{ localStorage.setItem(KEY, payload); ok = true; }catch(e){} }
+    if(!ok && !saveWorks) document.getElementById("saveHint").textContent = "Saving is unavailable here — copy the plan before closing.";
+    saveWorks = saveWorks || ok;
+  }, 250);
+}
+
+/* ---------- selection ---------- */
+const k = (section,id) => section + "|" + id;
+const isOn = (section,id) => !!state.sel[k(section,id)];
+function toggle(section,id){
+  const key = k(section,id);
+  if(state.sel[key]) delete state.sel[key]; else state.sel[key] = { q:"" };
+  save(); render();
+}
+function sectionsFor(id){
+  const s = [];
+  if(Object.values(BREADTH).some(g=>g.list.some(c=>c.id===id))) s.push("breadth");
+  if(Object.values(DEPTH).some(g=>g.list.some(c=>c.id===id))) s.push("depth");
+  if(ELECTIVE_GROUPS.some(g=>g.list.some(c=>c.id===id))) s.push("elective");
+  return s;
+}
+function depthSelected(){
+  const out = [];
+  Object.keys(state.sel).forEach(key=>{
+    if(key.indexOf("depth|") !== 0) return;
+    const id = key.slice(6);
+    const act = DEPTH[state.depthArea].list.find(c=>c.id===id);
+    if(act){ out.push({...act, area:state.depthArea, section:"depth", inArea:true}); return; }
+    for(const [ak,g] of Object.entries(DEPTH)){
+      const c = g.list.find(c=>c.id===id);
+      if(c){ out.push({...c, area:ak, section:"depth", inArea:false}); return; }
+    }
+  });
+  return out;
+}
+function selected(section){
+  if(section === "depth") return depthSelected();
+  const groups = section === "breadth"
+    ? Object.entries(BREADTH).map(([a,g])=>[a,g.list])
+    : ELECTIVE_GROUPS.map(g=>[g.key,g.list]);
+  const out = [];
+  groups.forEach(([area,list])=>list.forEach(c=>{ if(isOn(section,c.id)) out.push({...c,area,section}); }));
+  return out;
+}
+
+/* ---------- catalog ---------- */
+const LBL = { breadth:"Also in breadth", depth:"Also in depth", elective:"Also an elective" };
+function courseCard(c, section){
+  const on = isOn(section,c.id);
+  const others = sectionsFor(c.id).filter(s=>s!==section);
+  const badge = others.length ? LBL[others[0]] : "";
+  const clash = others.some(s=>isOn(s,c.id));
+  return `<button class="course${clash?" clash":""}" aria-pressed="${on}" data-section="${section}" data-id="${c.id}">
+    ${badge?`<span class="dup">${badge}</span>`:""}
+    <span class="code">${c.code}${c.star?'<span class="star">★</span>':""}</span>
+    <span class="title">${c.title}</span>
+    ${c.note?`<span class="note">${c.note}</span>`:""}</button>`;
+}
+function renderCatalog(){
+  document.getElementById("breadthAreas").innerHTML = Object.entries(BREADTH).map(([area,g])=>{
+    const n = selected("breadth").filter(c=>c.area===area).length;
+    return `<div class="area-title">${g.name}<span class="n">${n?` · ${n} selected`:""}</span></div>
+      <div class="courses">${g.list.map(c=>courseCard(c,"breadth")).join("")}</div>`;}).join("");
+
+  const locked = state.major === "ce";
+  document.getElementById("depthChips").innerHTML = Object.entries(DEPTH).map(([key,g])=>{
+    const n = g.list.filter(c=>isOn("depth",c.id)).length;
+    const dis = locked && key !== "ce";
+    return `<button class="chipbtn" data-area="${key}" aria-pressed="${state.depthArea===key}"${dis?" disabled":""}>
+      ${g.name}${n?`<span class="dot"></span>`:""}</button>`;}).join("");
+  const g = DEPTH[state.depthArea];
+  const n = depthSelected().filter(c=>c.inArea).length;
+  document.getElementById("depthAreas").innerHTML =
+    `${g.note?`<div class="dept-note" style="margin-top:10px">${g.note}</div>`:""}
+     <div class="area-title">${g.name}<span class="n">${n?` · ${n} of 3 chosen`:""}</span></div>
+     <div class="courses">${g.list.map(c=>courseCard(c,"depth")).join("")}</div>`;
+  document.getElementById("depthRule").textContent = locked
+    ? "Computer Engineering majors must take all three depth courses from the Computer Engineering area."
+    : "Three courses from a single depth area. Pick your area, then pick three.";
+
+  const openSet = new Set([...document.querySelectorAll("details.dept[open]")].map(d=>d.dataset.key));
+  const depts = ELECTIVE_GROUPS.map(gr=>{
+    const cnt = gr.list.filter(c=>isOn("elective",c.id)).length;
+    const open = openSet.size ? openSet.has(gr.key) : gr.open;
+    return `<details class="dept" data-key="${gr.key}"${open?" open":""}>
+      <summary><span class="caret">▸</span><span class="dept-name">${gr.name}</span>
+        <span class="dept-meta${cnt?" has":""}">${cnt?`${cnt} selected`:`${gr.list.length} courses`}</span></summary>
+      <div class="dept-body">${gr.capNote?`<div class="dept-note">${gr.capNote}</div>`:""}
+        <div class="courses">${gr.list.map(c=>courseCard(c,"elective")).join("")}</div></div></details>`;}).join("");
+  const refs = REFERENCE.map(r=>`<details class="dept" data-key="ref-${r.name}"${openSet.has("ref-"+r.name)?" open":""}>
+      <summary><span class="caret">▸</span><span class="dept-name">${r.name}</span>
+        <span class="dept-meta">reference · click to fill the add box</span></summary>
+      <div class="dept-body"><div class="ref">${r.lines.map(([code,title])=>
+        `<button data-fill="${code}" data-filltitle="${title}"><span class="rc">${code}</span><span class="rt">${title}</span></button>`).join("")}</div></div></details>`).join("");
+  document.getElementById("deptList").innerHTML = depts + refs;
+
+  document.getElementById("breadthRule").textContent = state.major==="cs"
+    ? "One course from each of Theory, Systems, and Applications."
+    : "Two courses from Systems, plus one from either Theory or Applications.";
+}
+
+/* ---------- tallies ---------- */
+function tally(){
+  const b = selected("breadth"), dAll = depthSelected(), e = selected("elective");
+  const d = dAll.filter(c=>c.inArea), dOut = dAll.filter(c=>!c.inArea);
+  const byArea = a => b.filter(c=>c.area===a).length;
+  let breadthOK, breadthSlots;
+  if(state.major==="cs"){
+    breadthOK = byArea("theory")>=1 && byArea("systems")>=1 && byArea("apps")>=1;
+    breadthSlots = ["theory","systems","apps"].map(a=>{
+      const p = b.filter(c=>c.area===a);
+      return { label:BREADTH[a].name, code:p[0]?p[0].code:"" };});
+  } else {
+    const sys = b.filter(c=>c.area==="systems"), other = b.filter(c=>c.area!=="systems");
+    breadthOK = sys.length>=2 && other.length>=1;
+    breadthSlots = [{label:"Systems",code:sys[0]?sys[0].code:""},
+                    {label:"Systems",code:sys[1]?sys[1].code:""},
+                    {label:"Theory / Apps",code:other[0]?other[0].code:""}];
+  }
+  const breadthCounted = Math.min(b.length,3)*U;
+  const depthCounted = Math.min(d.length,3)*U;
+  const overflow = (Math.max(0,b.length-3)+Math.max(0,d.length-3)+dOut.length)*U;
+  const electiveUnits = e.reduce((s,c)=>s+c.units,0) + state.custom.reduce((s,c)=>s+c.units,0) + state.research + overflow;
+  return { b,d,dOut,e, breadthOK, breadthSlots, breadthCounted, depthCounted, depthOK:d.length>=3,
+           overflow, electiveUnits, total: breadthCounted + depthCounted + Math.min(electiveUnits,16) };
+}
+
+function renderMeters(){
+  const t = tally();
+  const seg = s => `<div class="seg${s.code?" on":""}"><span class="slot">${s.label}</span>${s.code?`<span class="code">${s.code}</span>`:""}</div>`;
+  const short = DEPTH[state.depthArea].short;
+  const depthSlots = [0,1,2].map(i=>({label:short, code:t.d[i]?t.d[i].code:""}));
+  const ticks = Array.from({length:16},(_,i)=>`<div class="tick${i<Math.min(t.electiveUnits,16)?" on":""}"></div>`).join("");
+  document.getElementById("meters").innerHTML = `
+    <div class="meter"><div class="meter-head"><span class="meter-name">Breadth</span>
+      <span class="meter-count${t.breadthOK?" done":""}">${t.breadthCounted} / 12 units</span></div>
+      <div class="segs">${t.breadthSlots.map(seg).join("")}</div>
+      ${!t.breadthOK?`<div class="meter-note">${state.major==="cs"?"Needs one course from each area.":"Needs two Systems plus one Theory or Applications."}</div>`:""}</div>
+    <div class="meter"><div class="meter-head"><span class="meter-name">Depth · ${DEPTH[state.depthArea].name}</span>
+      <span class="meter-count${t.depthOK?" done":""}">${t.depthCounted} / 12 units</span></div>
+      <div class="segs">${depthSlots.map(seg).join("")}</div>
+      ${!t.depthOK?`<div class="meter-note">Three courses from this one area.</div>`:""}</div>
+    <div class="meter"><div class="meter-head"><span class="meter-name">Electives &amp; research</span>
+      <span class="meter-count${t.electiveUnits>=16?" done":""}">${t.electiveUnits} / 16 units</span></div>
+      <div class="ticks">${ticks}</div>
+      ${t.overflow?`<div class="meter-note">${t.overflow} units rolled down from extra or out-of-area picks.</div>`:""}
+      ${t.electiveUnits>16?`<div class="meter-note warn">${t.electiveUnits-16} units past the requirement.</div>`:""}</div>`;
+  document.getElementById("grandTotal").textContent = `${t.total} / 40`;
+
+  const flags = [];
+  t.b.forEach(c=>{ if(sectionsFor(c.id).some(s=>s!=="breadth" && isOn(s,c.id)))
+    flags.push(`<b>${c.code}</b> is selected in more than one requirement. It counts once — drop one.`); });
+  t.e.forEach(c=>{ if(!isOn("breadth",c.id) && sectionsFor(c.id).some(s=>s==="depth" && isOn(s,c.id)))
+    flags.push(`<b>${c.code}</b> is selected as both an elective and a depth course. It counts once.`); });
+  t.dOut.forEach(c=>flags.push(`<b>${c.code}</b> belongs to ${DEPTH[c.area].name}, not ${DEPTH[state.depthArea].name} — it's counting as an elective.`));
+  const has203B = isOn("breadth","203B")||isOn("depth","203B");
+  if(has203B && isOn("depth","ece273")) flags.push(`<b>CSE 203B</b> and <b>ECE 273</b> overlap — ECE 273 makes 203B ineligible.`);
+  if(isOn("breadth","220")||isOn("depth","220")) flags.push(`<b>CSE 220</b> is closed to you if you already took CSE 120.`);
+  ELECTIVE_GROUPS.forEach(g=>{ if(g.cap){
+    const n = g.list.filter(c=>isOn("elective",c.id)).length;
+    if(n>g.cap) flags.push(`${n} ${g.name} courses selected — only ${g.cap} can count.`);}});
+  Object.entries(UG_GRAD_ID).forEach(([ug,grads])=>{
+    if(!isOn("elective",ug)) return;
+    grads.forEach(gid=>{ if(isOn("breadth",gid)||isOn("depth",gid)){
+      const ugC = ELECTIVE_GROUPS.find(g=>g.key==="ugrad").list.find(c=>c.id===ug);
+      flags.push(`<b>${ugC.code}</b> overlaps the graduate version you've selected — you can't count both.`);}});
+  });
+  if(state.plan==="thesis" && (state.research<8||state.research>12))
+    flags.push(`Thesis plan needs <b>8–12 units of CSE 298</b>. You have ${state.research}.`);
+  const panel = document.getElementById("flagPanel");
+  panel.hidden = !flags.length;
+  document.getElementById("flags").innerHTML = flags.map(f=>`<div class="flag">${f}</div>`).join("");
+}
+
+function allSelected(){
+  return [...selected("breadth"),...depthSelected(),...selected("elective"),
+          ...state.custom.map(c=>({...c,section:"custom"}))];
+}
+function qOf(c){ return c.section==="custom" ? (c.q||"") : ((state.sel[k(c.section,c.id)]||{}).q||""); }
+function renderQuarters(){
+  const items = allSelected();
+  document.getElementById("quarters").innerHTML = QUARTERS.map(q=>{
+    const inQ = items.filter(c=>qOf(c)===q);
+    const units = inQ.reduce((s,c)=>s+c.units,0);
+    return `<div class="q"><div class="q-head"><span class="q-name">${q}</span><span class="q-units">${units} units</span></div>
+      ${inQ.length?`<ul class="q-list">${inQ.map(c=>`<li>${c.code}</li>`).join("")}</ul>`:`<div class="q-empty">open</div>`}</div>`;}).join("");
+  const rows = items.map(c=>{
+    const cur = qOf(c);
+    return `<tr><td class="c">${c.code}</td><td class="t">${c.title}</td>
+      <td style="text-align:right"><select data-qsec="${c.section}" data-qid="${c.id}">
+        <option value=""${cur===""?" selected":""}>—</option>
+        ${QUARTERS.map(q=>`<option value="${q}"${cur===q?" selected":""}>${q}</option>`).join("")}
+      </select></td></tr>`;}).join("");
+  document.getElementById("assign").innerHTML = items.length
+    ? `<table class="assign">${rows}</table>` : `<div class="empty">Pick a course and it shows up here.</div>`;
+}
+function renderCustom(){
+  document.getElementById("customList").innerHTML = state.custom.map(c=>
+    `<span class="chip"><span class="cc">${c.code}</span>${c.title} · ${c.units}u<button data-del="${c.id}" aria-label="Remove ${c.code}">×</button></span>`).join("");
+  document.getElementById("resVal").textContent = state.research + " units";
+  document.getElementById("resHint").textContent = state.plan==="thesis"
+    ? "Thesis plan: 8–12 units required, graded S/U." : "Optional on the comprehensive-exam plan; graded S/U.";
+}
+function render(){
+  if(state.major==="ce") state.depthArea = "ce";
+  renderCatalog(); renderMeters(); renderQuarters(); renderCustom();
+}
+
+/* ---------- events ---------- */
+document.addEventListener("click", e=>{
+  const course = e.target.closest(".course");
+  if(course){ toggle(course.dataset.section, course.dataset.id); return; }
+  const chip = e.target.closest(".chipbtn");
+  if(chip && !chip.disabled){ state.depthArea = chip.dataset.area; save(); render(); return; }
+  const fill = e.target.closest("[data-fill]");
+  if(fill){
+    document.getElementById("addCode").value = fill.dataset.fill.split("–")[0].split(",")[0].trim();
+    document.getElementById("addTitle").value = fill.dataset.filltitle || "";
+    document.getElementById("addStack").scrollIntoView({behavior:"smooth",block:"center"});
+    setTimeout(()=>document.getElementById("addCode").focus(),300); return;
+  }
+  const maj = e.target.closest("#majorToggle button");
+  if(maj){ state.major = maj.dataset.major;
+    document.querySelectorAll("#majorToggle button").forEach(b=>b.setAttribute("aria-pressed", b===maj)); save(); render(); return; }
+  const pl = e.target.closest("#planToggle button");
+  if(pl){ state.plan = pl.dataset.plan;
+    document.querySelectorAll("#planToggle button").forEach(b=>b.setAttribute("aria-pressed", b===pl)); save(); render(); return; }
+  const del = e.target.closest("[data-del]");
+  if(del){ state.custom = state.custom.filter(c=>c.id!==del.dataset.del); save(); render(); return; }
+});
+document.getElementById("resUp").onclick = ()=>{ state.research = Math.min(12,state.research+4); save(); render(); };
+document.getElementById("resDown").onclick = ()=>{ state.research = Math.max(0,state.research-4); save(); render(); };
+document.getElementById("addBtn").onclick = ()=>{
+  const code = document.getElementById("addCode").value.trim();
+  const title = document.getElementById("addTitle").value.trim() || "—";
+  const units = Math.max(1,Math.min(12,parseInt(document.getElementById("addUnits").value)||4));
+  if(!code) return;
+  state.custom.push({ id:"x"+Date.now(), code, title, units, q:"" });
+  document.getElementById("addCode").value=""; document.getElementById("addTitle").value="";
+  save(); render();
+};
+document.addEventListener("change", e=>{
+  const sel = e.target.closest("[data-qid]"); if(!sel) return;
+  const sec = sel.dataset.qsec, id = sel.dataset.qid;
+  if(sec==="custom"){ const c = state.custom.find(c=>c.id===id); if(c) c.q = sel.value; }
+  else if(state.sel[k(sec,id)]) state.sel[k(sec,id)].q = sel.value;
+  save(); renderQuarters();
+});
+document.getElementById("clearBtn").onclick = ()=>{ state.sel={}; state.custom=[]; state.research=0; save(); render(); };
+document.getElementById("copyBtn").onclick = ()=>{
+  const t = tally();
+  const line = c => `  ${c.code.padEnd(11)}${c.title}${qOf(c)?"  ["+qOf(c)+"]":""}`;
+  const txt = [
+    `UCSD M.S. CSE plan — ${state.major==="cs"?"Computer Science":"Computer Engineering"}, ${state.plan==="thesis"?"Thesis":"Comprehensive exam"}`,"",
+    `BREADTH (${t.breadthCounted}/12)`, ...t.b.map(line), "",
+    `DEPTH — ${DEPTH[state.depthArea].name} (${t.depthCounted}/12)`, ...t.d.map(line), "",
+    `ELECTIVES & RESEARCH (${t.electiveUnits}/16)`, ...t.e.map(line), ...t.dOut.map(line),
+    ...state.custom.map(c=>`  ${c.code.padEnd(11)}${c.title} (${c.units}u)${c.q?"  ["+c.q+"]":""}`),
+    ...(state.research?[`  CSE 298    Independent research — ${state.research} units (S/U)`]:[]), "",
+    `TOTAL ${t.total}/40`].join("\n");
+  const b = document.getElementById("copyBtn");
+  navigator.clipboard.writeText(txt)
+    .then(()=>{ b.textContent="Copied"; setTimeout(()=>b.textContent="Copy plan",1400); })
+    .catch(()=>{ b.textContent="Copy blocked"; setTimeout(()=>b.textContent="Copy plan",1400); });
+};
+
+(async ()=>{
+  await loadState();
+  document.querySelectorAll("#majorToggle button").forEach(b=>b.setAttribute("aria-pressed", b.dataset.major===state.major));
+  document.querySelectorAll("#planToggle button").forEach(b=>b.setAttribute("aria-pressed", b.dataset.plan===state.plan));
+  render();
+})();
+</script>
